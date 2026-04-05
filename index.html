@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ScreenNote - 截图标注工具</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,'Segoe UI',sans-serif;background:#0f0f1a;color:#e0e0e0;min-height:100vh;}
+.hero{text-align:center;padding:48px 20px 32px;background:linear-gradient(135deg,#1a1a2e,#0f0f1a);border-bottom:1px solid #2d2d44;}
+.hero h1{font-size:2.2em;color:#fff;margin-bottom:8px;}.hero h1 span{color:#f59e0b;}
+.hero p{color:#888;}
+.badge{display:inline-block;background:#f59e0b;color:#000;font-size:0.78em;padding:3px 10px;border-radius:20px;margin-top:10px;font-weight:600;}
+.container{max-width:1000px;margin:0 auto;padding:24px;}
+.card{background:#1e1e2e;border:1px solid #2d2d44;border-radius:12px;padding:22px;margin-bottom:18px;}
+.card h2{color:#fff;font-size:1.05em;margin-bottom:14px;border-left:3px solid #f59e0b;padding-left:10px;}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;padding:12px;background:#0f0f1a;border:1px solid #2d2d44;border-radius:8px;}
+.tool-btn{padding:8px 14px;background:#2d2d44;border:1px solid #3d3d5c;border-radius:6px;cursor:pointer;font-size:0.85em;color:#ccc;transition:all 0.2s;}
+.tool-btn:hover{background:#3d3d5c;}
+.tool-btn.active{background:#f59e0b;color:#000;border-color:#f59e0b;}
+.color-picker{display:flex;gap:6px;align-items:center;}
+.color-dot{width:24px;height:24px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all 0.2s;}
+.color-dot:hover{transform:scale(1.1);}
+.color-dot.active{border-color:#fff;box-shadow:0 0 0 2px #f59e0b;}
+.canvas-container{position:relative;background:#0f0f1a;border:2px dashed #3d3d5c;border-radius:8px;min-height:400px;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.canvas-container.dragover{border-color:#f59e0b;background:#1a1a2e;}
+#canvas{background:#fff;cursor:crosshair;max-width:100%;}
+.upload-hint{text-align:center;color:#666;padding:60px 20px;}
+.upload-hint .icon{font-size:3em;margin-bottom:10px;}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;}
+.btn{padding:10px 18px;border:none;border-radius:8px;cursor:pointer;font-size:0.85em;font-weight:500;}
+.btn-primary{background:#f59e0b;color:#000;}.btn-primary:hover{background:#d97706;}
+.btn-secondary{background:#2d2d44;color:#ccc;border:1px solid #3d3d5c;}.btn-secondary:hover{background:#3d3d5c;}
+.btn-danger{background:#ef4444;color:#fff;}.btn-danger:hover{background:#dc2626;}
+input[type=file]{display:none;}
+.size-input{width:70px;background:#0f0f1a;border:1px solid #3d3d5c;border-radius:4px;color:#ccc;padding:4px 8px;text-align:center;}
+footer{text-align:center;padding:28px;color:#555;font-size:0.8em;border-top:1px solid #1e1e2e;margin-top:20px;}
+.status{position:fixed;bottom:18px;right:18px;background:#10b981;color:#fff;padding:9px 18px;border-radius:8px;font-size:0.85em;opacity:0;transition:opacity 0.3s;z-index:999;}
+.status.show{opacity:1;}
+</style>
+</head>
+<body>
+<div class="hero">
+  <h1>Screen<span>Note</span></h1>
+  <p>截图标注工具 · 矩形/箭头/文字/马赛克 · 完全免费</p>
+  <span class="badge">✓ 纯前端 · 不上传图片</span>
+</div>
+
+<div class="container">
+  <div class="card">
+    <h2>🎨 工具栏</h2>
+    <div class="toolbar">
+      <button class="tool-btn active" id="tool-rect" onclick="setTool('rect')">⬜ 矩形</button>
+      <button class="tool-btn" id="tool-arrow" onclick="setTool('arrow')">➡️ 箭头</button>
+      <button class="tool-btn" id="tool-line" onclick="setTool('line')">📏 直线</button>
+      <button class="tool-btn" id="tool-text" onclick="setTool('text')">📝 文字</button>
+      <button class="tool-btn" id="tool-mosaic" onclick="setTool('mosaic')">🔲 马赛克</button>
+      <div style="width:1px;height:24px;background:#3d3d5c;margin:0 4px;"></div>
+      <div class="color-picker">
+        <div class="color-dot active" style="background:#ef4444" onclick="setColor('#ef4444')"></div>
+        <div class="color-dot" style="background:#f59e0b" onclick="setColor('#f59e0b')"></div>
+        <div class="color-dot" style="background:#10b981" onclick="setColor('#10b981')"></div>
+        <div class="color-dot" style="background:#3b82f6" onclick="setColor('#3b82f6')"></div>
+        <div class="color-dot" style="background:#8b5cf6" onclick="setColor('#8b5cf6')"></div>
+        <div class="color-dot" style="background:#000" onclick="setColor('#000')"></div>
+        <div class="color-dot" style="background:#fff;border:1px solid #666" onclick="setColor('#fff')"></div>
+      </div>
+      <div style="width:1px;height:24px;background:#3d3d5c;margin:0 4px;"></div>
+      <span style="font-size:0.8em;color:#888">粗细:</span>
+      <select id="line-width" style="background:#0f0f1a;border:1px solid #3d3d5c;border-radius:4px;color:#ccc;padding:4px;">
+        <option value="2">细</option>
+        <option value="4" selected>中</option>
+        <option value="6">粗</option>
+        <option value="10">特粗</option>
+      </select>
+      <div style="flex:1;"></div>
+      <button class="btn btn-secondary" onclick="undo()">↩️ 撤销</button>
+      <button class="btn btn-danger" onclick="clearCanvas()">🗑 清空</button>
+    </div>
+    
+    <div class="canvas-container" id="drop-zone">
+      <div class="upload-hint" id="upload-hint">
+        <div class="icon">📁</div>
+        <p>拖拽图片到此处，或点击上传</p>
+        <p style="font-size:0.8em;color:#555;margin-top:8px">支持 JPG, PNG, GIF, WebP</p>
+        <button class="btn btn-primary" style="margin-top:14px" onclick="document.getElementById('file-input').click()">选择图片</button>
+        <input type="file" id="file-input" accept="image/*" onchange="handleFile(event)">
+        <div style="margin-top:20px">
+          <span style="font-size:0.8em;color:#666">或创建空白画布:</span>
+          <div style="margin-top:8px">
+            <input type="number" class="size-input" id="new-w" value="800" placeholder="宽">
+            <span style="color:#666">×</span>
+            <input type="number" class="size-input" id="new-h" value="600" placeholder="高">
+            <button class="btn btn-secondary" style="margin-left:8px" onclick="createBlank()">创建</button>
+          </div>
+        </div>
+      </div>
+      <canvas id="canvas" style="display:none;"></canvas>
+    </div>
+    
+    <div class="btn-row" id="action-btns" style="display:none;">
+      <button class="btn btn-primary" onclick="downloadImage()">💾 下载图片</button>
+      <button class="btn btn-secondary" onclick="copyImage()">📋 复制到剪贴板</button>
+      <button class="btn btn-secondary" onclick="newImage()">🆕 新建</button>
+    </div>
+  </div>
+</div>
+
+<footer>ScreenNote · 免费 · 纯前端处理 · 不上传任何数据</footer>
+<div class="status" id="status"></div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const dropZone = document.getElementById('drop-zone');
+let currentTool = 'rect';
+let currentColor = '#ef4444';
+let isDrawing = false;
+let startX, startY;
+let history = [];
+let historyStep = -1;
+let originalImage = null;
+
+function showS(m){const e=document.getElementById('status');e.textContent=m;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2000);}
+
+function setTool(t){
+  currentTool = t;
+  document.querySelectorAll('.tool-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tool-'+t).classList.add('active');
+}
+
+function setColor(c){
+  currentColor = c;
+  document.querySelectorAll('.color-dot').forEach(d=>d.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+function createBlank(){
+  const w = parseInt(document.getElementById('new-w').value) || 800;
+  const h = parseInt(document.getElementById('new-h').value) || 600;
+  canvas.width = w;
+  canvas.height = h;
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0,0,w,h);
+  showCanvas();
+  saveState();
+}
+
+function showCanvas(){
+  document.getElementById('upload-hint').style.display = 'none';
+  canvas.style.display = 'block';
+  document.getElementById('action-btns').style.display = 'flex';
+}
+
+function handleFile(e){
+  const file = e.target.files[0];
+  if(!file)return;
+  loadImage(file);
+}
+
+function loadImage(file){
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    const img = new Image();
+    img.onload = ()=>{
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img,0,0);
+      originalImage = img;
+      showCanvas();
+      saveState();
+      showS('✅ 图片已加载');
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// Drag & Drop
+dropZone.addEventListener('dragover',(e)=>{e.preventDefault();dropZone.classList.add('dragover');});
+dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop',(e)=>{
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if(file && file.type.startsWith('image/')) loadImage(file);
+});
+
+// Drawing
+canvas.addEventListener('mousedown',(e)=>{
+  isDrawing = true;
+  const rect = canvas.getBoundingClientRect();
+  startX = (e.clientX - rect.left) * (canvas.width / rect.width);
+  startY = (e.clientY - rect.top) * (canvas.height / rect.height);
+  
+  if(currentTool === 'text'){
+    const text = prompt('输入文字：');
+    if(text){
+      ctx.font = `${parseInt(document.getElementById('line-width').value) * 5 + 10}px sans-serif`;
+      ctx.fillStyle = currentColor;
+      ctx.fillText(text, startX, startY);
+      saveState();
+    }
+    isDrawing = false;
+  }
+});
+
+canvas.addEventListener('mousemove',(e)=>{
+  if(!isDrawing || currentTool === 'text') return;
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+  const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+  
+  // Preview (restore then draw)
+  if(historyStep >= 0){
+    const img = new Image();
+    img.onload = ()=>{
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.drawImage(img,0,0);
+      drawShape(startX,startY,x,y,true);
+    };
+    img.src = history[historyStep];
+  }
+});
+
+canvas.addEventListener('mouseup',(e)=>{
+  if(!isDrawing) return;
+  isDrawing = false;
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+  const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+  drawShape(startX,startY,x,y,false);
+  saveState();
+});
+
+function drawShape(x1,y1,x2,y2,isPreview){
+  const lw = parseInt(document.getElementById('line-width').value);
+  ctx.strokeStyle = currentColor;
+  ctx.fillStyle = currentColor;
+  ctx.lineWidth = lw;
+  ctx.lineCap = 'round';
+  
+  switch(currentTool){
+    case 'rect':
+      ctx.strokeRect(x1,y1,x2-x1,y2-y1);
+      break;
+    case 'line':
+      ctx.beginPath();
+      ctx.moveTo(x1,y1);
+      ctx.lineTo(x2,y2);
+      ctx.stroke();
+      break;
+    case 'arrow':
+      drawArrow(x1,y1,x2,y2);
+      break;
+    case 'mosaic':
+      const size = lw * 3;
+      ctx.fillStyle = '#ccc';
+      for(let x=Math.min(x1,x2);x<Math.max(x1,x2);x+=size){
+        for(let y=Math.min(y1,y2);y<Math.max(y1,y2);y+=size){
+          ctx.fillRect(x,y,size,size);
+        }
+      }
+      break;
+  }
+}
+
+function drawArrow(x1,y1,x2,y2){
+  const headlen = 15;
+  const angle = Math.atan2(y2-y1,x2-x1);
+  ctx.beginPath();
+  ctx.moveTo(x1,y1);
+  ctx.lineTo(x2,y2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x2,y2);
+  ctx.lineTo(x2-headlen*Math.cos(angle-Math.PI/6),y2-headlen*Math.sin(angle-Math.PI/6));
+  ctx.lineTo(x2-headlen*Math.cos(angle+Math.PI/6),y2-headlen*Math.sin(angle+Math.PI/6));
+  ctx.closePath();
+  ctx.fill();
+}
+
+function saveState(){
+  historyStep++;
+  history = history.slice(0, historyStep);
+  history.push(canvas.toDataURL());
+}
+
+function undo(){
+  if(historyStep > 0){
+    historyStep--;
+    const img = new Image();
+    img.onload = ()=>{
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.drawImage(img,0,0);
+    };
+    img.src = history[historyStep];
+    showS('↩️ 已撤销');
+  }
+}
+
+function clearCanvas(){
+  if(confirm('确定清空画布？')){
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    saveState();
+  }
+}
+
+function downloadImage(){
+  const a = document.createElement('a');
+  a.href = canvas.toDataURL('image/png');
+  a.download = `screenshot_${Date.now()}.png`;
+  a.click();
+  showS('💾 已下载');
+}
+
+function copyImage(){
+  canvas.toBlob(blob=>{
+    navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
+    showS('📋 已复制');
+  });
+}
+
+function newImage(){
+  if(confirm('确定新建？当前内容将丢失。')){
+    document.getElementById('upload-hint').style.display = 'block';
+    canvas.style.display = 'none';
+    document.getElementById('action-btns').style.display = 'none';
+    history = [];
+    historyStep = -1;
+  }
+}
+</script>
+</body>
+</html>
